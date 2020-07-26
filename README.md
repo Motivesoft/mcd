@@ -16,3 +16,31 @@ Yes, it would be easy enough to do this in a batch or command file, or by some o
 1. Syntactically, the utility will work like `cd` but of course you change that that by copying this code and making you own version
 1. Built executables will be provided as a GitHub Release
 1. The best usage is to put the appropriate executable into a utilities folder that is on your command prompt path so that you can run it just as simply as you can use the built in `cd` and `md` commands.
+
+# Information
+Displays the name of or changes the current directory. If the directory doesn't exist, it is created.
+
+`MCD [/D] [drive:][path]`<br>
+`MCD [..]`
+
+  ..   Specifies that you want to change to the parent directory.
+
+Type `MCD drive:` to display the current directory in the specified drive.
+Type `MCD` without parameters to display the current drive and directory.
+
+Use the `/D` switch to change current drive in addition to changing current
+directory for a drive.
+
+`MCD` does not treat spaces as delimiters, so it is possible to
+create and change into a subdirectory name that contains a space without surrounding
+the name with quotes.  For example:
+
+`MCD \winnt\profiles\username\programs\start menu`
+
+is the same as:
+
+`MCD "\winnt\profiles\username\programs\start menu"`
+
+Multiple adjacent spaces will be condensed down to one, which is not precisely
+the same behaviour as `CD` with extensions enabled, but close enough for most uses. For
+multiple adjecent spaces, surround the path with quotes.

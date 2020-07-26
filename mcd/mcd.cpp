@@ -40,6 +40,8 @@ int wmain( int argc, const wchar_t* argv[] )
        }
        else
        {
+          // TODO if path is just a drive letter, print the current working directory for that drive and exit
+
           std::wcout << "\"" << path << "\"" << std::endl;
        }
     }
@@ -77,15 +79,11 @@ void printHelp( const wchar_t* name )
    std::wcout << "" << std::endl;
    std::wcout << "Multiple adjacent spaces will be condensed down to one, which is not precisely" << std::endl;
    std::wcout << "the same behaviour as CD with extensions enabled, but close enough for most uses. For" << std::endl;
-   std::wcout << "multiple adjecent spaces, surround the path with quotes.  For example:" << std::endl;
-   std::wcout << "" << std::endl;
-   std::wcout << "    " << name << " \"\\temp\\this     path  has    many       spaces\"" << std::endl;
+   std::wcout << "multiple adjecent spaces, surround the path with quotes." << std::endl;
    /*
 The current directory string is converted to use the same case as
 the on disk names.  So CD C:\TEMP would actually set the current
 directory to C:\Temp if that is the case on disk.
-
-which is what you would have to type if extensions were disabled.
    */
 }
 
