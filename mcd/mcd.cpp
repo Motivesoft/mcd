@@ -2,49 +2,63 @@
 //
 
 #include <iostream>
+#include <direct.h>
 
-void printCurrentWorkingDirectory();
+void printCurrentWorkingDirectory( int drive );
 bool isHelp( const wchar_t* arg );
 void printHelp( const wchar_t* name );
+int driveToIndex( wchar_t drive );
 
 int wmain( int argc, const wchar_t* argv[] )
 {
-    if ( argc == 1 )
-    {
-       printCurrentWorkingDirectory();
-    }
-    else
-    {
-       std::wstring path;
-       bool showHelp = false;
-       for ( int i = 1; i < argc && !showHelp; i++ )
-       {
-          showHelp = isHelp( argv[ i ] );
-          if ( !showHelp )
-          {
-             if ( path.length() > 0 )
-             {
-                path = path.append( L" " );
-             }
-             path.append( argv[ i ] );
-          }
-       }
+   if ( argc == 1 )
+   {
+      printCurrentWorkingDirectory( _getdrive() );
+   }
+   else
+   {
+      std::wstring path;
+      bool showHelp = false;
+      for ( int i = 1; i < argc && !showHelp; i++ )
+      {
+         showHelp = isHelp( argv[ i ] );
+         if ( !showHelp )
+         {
+            if ( path.length() > 0 )
+            {
+               path = path.append( L" " );
+            }
+            path.append( argv[ i ] );
+         }
+      }
 
-       if ( showHelp )
-       {
-          wchar_t appName[ _MAX_FNAME ];
-          _wsplitpath_s( argv[ 0 ], NULL, 0, NULL, 0, appName, _MAX_FNAME, NULL, 0 );
-          _wcsupr_s( appName, _MAX_FNAME );
+      if ( showHelp )
+      {
+         wchar_t appName[ _MAX_FNAME + 1 ];
+         _wsplitpath_s( argv[ 0 ], NULL, 0, NULL, 0, appName, _MAX_FNAME, NULL, 0 );
+         _wcsupr_s( appName, _MAX_FNAME );
 
-          printHelp( appName );
-       }
-       else
-       {
-          // TODO if path is just a drive letter, print the current working directory for that drive and exit
+         printHelp( appName );
+      }
+      else
+      {
+         // TODO if path is just a drive letter, print the current working directory for that drive and exit
+         wchar_t drive[ _MAX_DRIVE + 1 ];
+         wchar_t dir[ _MAX_DIR + 1 ];
+         _wsplitpath_s( path.c_str(), drive, _MAX_DRIVE, dir, _MAX_DIR, NULL, 0, NULL, 0 );
 
-          std::wcout << "\"" << path << "\"" << std::endl;
-       }
-    }
+         if ( wcslen( dir ) == 0 )
+         {
+            printCurrentWorkingDirectory( driveToIndex( drive[ 0 ] ) );
+         }
+         else
+         {
+            // 
+            std::wcout << "\"" << path << "\"" << std::endl;
+
+         }
+      }
+   }
 }
 
 bool isHelp( const wchar_t* arg )
@@ -87,19 +101,47 @@ directory to C:\Temp if that is the case on disk.
    */
 }
 
-void printCurrentWorkingDirectory()
+/// <summary>
+/// Output the current working directory for the provided drive.
+/// <para><code>drive</code> is a 1-based drive index, e.g. A: = 1, B: = 2</para>
+/// </summary>
+/// <param name="drive">The drive letter (1-26)</param>
+void printCurrentWorkingDirectory( int drive )
 {
-   wchar_t* buffer = _wgetcwd( NULL, _MAX_PATH );
-   __try
+   // Check we can change to this drive before deciding that we can do other things
+   if ( _chdrive( drive ) == 0 )
    {
+      wchar_t* buffer = _wgetcwd( NULL, _MAX_PATH );
+
       if ( buffer )
       {
          std::wcout << buffer << std::endl;
       }
-   }
-   __finally
-   {
+
       free( buffer );
    }
+   else
+   {
+      std::wcout << "The system cannot find the drive specified." << std::endl;
+   }
+}
 
+/// <summary>
+/// Take a drive letter and make it into a drive index.
+/// <para>This essentially does "upper(drive)-'A'+1", but slightly more intelligently.</para>
+/// <para>For an invalid value, return 0. 0 is testable, and it is also the 'default drive', so calling methods can take their pick what route to take
+/// </summary>
+/// <param name="drive">the drive letter, a-z, case-insensitive</param>
+/// <returns>the drive index (1-26), 0 for unknown</returns>
+int driveToIndex( wchar_t drive )
+{
+   if ( drive >= 'a' && drive <= 'z' )
+   {
+      return drive - 'a' + 1;
+   }
+   if ( drive >= 'A' && drive <= 'Z' )
+   {
+      return drive - 'A' + 1;
+   }
+   return 0;
 }
