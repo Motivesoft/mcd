@@ -1,5 +1,47 @@
-// mcd.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+/*
+ * MCD
+ *
+ * A simple executable to act as a combination to the Windows commands MD and CD.
+ * Issue the command MCD with a path and the system will make that path the current
+ * working directory (as would be the case with CD), and if any parts of the path don't 
+ * exist, this utility will attempt to create them (as MD would do).
+ * As with CD, launching the utility no arguments will display the current working directory
+ * of the current drive, or if launched with just a drive specification it will display the
+ * current working directory for that drive.
+ * Launching the utility with a path will change the working directory to the path provided. 
+ * If that path is on a drive different to the current drive, the system will only change 
+ * to that drive the /D argument was also specified.
+ * Launch with /? to display usage information.
+ * 
+ * Usage examples:
+ *   MCD
+ *   MCD D:
+ *   MCD \Temp\New\Directory
+ *   MDC D:\Temp\New\Directory /D
+ *   MDC /?
+ *
+ * MIT License
+ *
+ * Copyright( c ) 2020 Motivesoft
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this softwareand associated documentation files( the "Software" ), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions :
+ *
+ * The above copyright noticeand this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
 #include <iostream>
 #include <direct.h>
@@ -81,6 +123,8 @@ void printHelp( const wchar_t* name )
    std::wcout << "Use the /D switch to change current drive in addition to changing current" << std::endl;
    std::wcout << "directory for a drive." << std::endl;
    std::wcout << "" << std::endl;
+   std::wcout << "Type " << name << " /? to display this help information." << std::endl;
+   std::wcout << "" << std::endl;
    std::wcout << name << " does not treat spaces as delimiters, so it is possible to" << std::endl;
    std::wcout << "create and change into a subdirectory name that contains a space without surrounding" << std::endl;
    std::wcout << "the name with quotes.  For example:" << std::endl;
@@ -94,11 +138,9 @@ void printHelp( const wchar_t* name )
    std::wcout << "Multiple adjacent spaces will be condensed down to one, which is not precisely" << std::endl;
    std::wcout << "the same behaviour as CD with extensions enabled, but close enough for most uses. For" << std::endl;
    std::wcout << "multiple adjecent spaces, surround the path with quotes." << std::endl;
-   /*
-The current directory string is converted to use the same case as
-the on disk names.  So CD C:\TEMP would actually set the current
-directory to C:\Temp if that is the case on disk.
-   */
+   std::wcout << "" << std::endl;
+   std::wcout << "MCD will not modify the case of the path when creating directories, but this does not" << std::endl;
+   std::wcout << "necessarily mean that the underlying operating system will behave similarly." << std::endl;
 }
 
 /// <summary>
