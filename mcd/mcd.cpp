@@ -15,9 +15,9 @@
  * 
  * Usage examples:
  *   MCD
- *   MCD D:
+ *   MCD E:
  *   MCD \Temp\New\Directory
- *   MDC D:\Temp\New\Directory /D
+ *   MDC /D E:\Temp\New\Directory
  *   MDC /?
  *
  * MIT License
@@ -47,9 +47,11 @@
 #include <direct.h>
 
 void printCurrentWorkingDirectory( int drive );
+bool isChangeDrive( const wchar_t* arg );
 bool isHelp( const wchar_t* arg );
 void printHelp( const wchar_t* name );
 int driveToIndex( wchar_t drive );
+bool driveExists( const wchar_t* drive );
 
 int wmain( int argc, const wchar_t* argv[] )
 {
@@ -61,51 +63,110 @@ int wmain( int argc, const wchar_t* argv[] )
    {
       std::wstring path;
       bool showHelp = false;
+      bool changeDrive = false;
       for ( int i = 1; i < argc && !showHelp; i++ )
       {
-         showHelp = isHelp( argv[ i ] );
-         if ( !showHelp )
+         // Support /?
+         if ( isHelp( argv[ i ] ) )
          {
-            if ( path.length() > 0 )
-            {
-               path = path.append( L" " );
-            }
-            path.append( argv[ i ] );
+            showHelp = true;
+            break;
          }
+
+         // Support /D - only works if placed before any path elements
+         if ( isChangeDrive( argv[ i ] ) && path.length() == 0 )
+         {
+            changeDrive = true;
+            continue;
+         }
+
+         // Build up the path by treating multiple arguments as part of the same path and using spaces
+         // although with spaces it would typically be better if the user surrounded them with quotes
+         // This is more or less what CD also does althoug (somehow) it also seems to understand a double space
+         // and we simply can't
+         if ( path.length() > 0 )
+         {
+            path = path.append( L" " );
+         }
+         path.append( argv[ i ] );
       }
 
       if ( showHelp )
       {
          wchar_t appName[ _MAX_FNAME + 1 ];
-         _wsplitpath_s( argv[ 0 ], NULL, 0, NULL, 0, appName, _MAX_FNAME, NULL, 0 );
+         _wsplitpath_s( argv[ 0 ], nullptr, 0, nullptr, 0, appName, _MAX_FNAME, nullptr, 0 );
          _wcsupr_s( appName, _MAX_FNAME );
 
          printHelp( appName );
       }
+      else if ( changeDrive && path.length() == 0 )
+      {
+         // Change drive with no path - error
+         std::wcout << "The filename, directory name, or volume label syntax is incorrect." << std::endl;
+      }
       else
       {
-         // TODO if path is just a drive letter, print the current working directory for that drive and exit
          wchar_t drive[ _MAX_DRIVE + 1 ];
          wchar_t dir[ _MAX_DIR + 1 ];
-         _wsplitpath_s( path.c_str(), drive, _MAX_DRIVE, dir, _MAX_DIR, NULL, 0, NULL, 0 );
+         wchar_t fname[ _MAX_FNAME + 1 ];
+         wchar_t ext[ _MAX_EXT + 1 ];
+         _wsplitpath_s( path.c_str(), drive, _MAX_DRIVE, dir, _MAX_DIR, fname, _MAX_FNAME, ext, _MAX_EXT );
 
-         if ( wcslen( dir ) == 0 )
+         // Consider a drive-only specification if the OS doesn't decode the path to have a directory, filename or extension
+         if ( wcslen( dir ) == 0 && wcslen( fname ) == 0 && wcslen( ext ) == 0 )
          {
-            printCurrentWorkingDirectory( driveToIndex( drive[ 0 ] ) );
+            if ( changeDrive )
+            {
+               // Change drive with no path - error
+               std::wcout << "The system cannot find the path specified." << std::endl;
+            }
+            else
+            {
+               // Display working directory for the specified drive
+               printCurrentWorkingDirectory( driveToIndex( drive[ 0 ] ) );
+            }
+         }
+         else if( wcslen( drive ) > 0 && !driveExists( drive ) )
+         {
+            std::wcout << "The system cannot find the drive specified." << std::endl;
          }
          else
          {
-            // 
-            std::wcout << "\"" << path << "\"" << std::endl;
-
+            // Make directory path (if it doesn't exist) and then change to it
+            struct _stat buffer;
+            if ( _wstat( path.c_str(), &buffer ) )
+            {
+               int result = _wmkdir( path.c_str() );
+               if ( result == ENOENT )
+               {
+                  std::wcout << "Failed to create path " << path.c_str() << std::endl;
+               }
+               else if ( result == EEXIST )
+               {
+                  std::wcout << "Failed to create path. Already exists? " << path.c_str() << std::endl;
+               }
+               else if ( result == 0 )
+               {
+                  // Success
+               }
+               else
+               {
+                  std::wcout << "The device is not ready." << std::endl;
+               }
+            }
          }
       }
    }
 }
 
+bool isChangeDrive( const wchar_t* arg )
+{
+   return arg != nullptr && (wcscmp( arg, L"/D" ) == 0 || wcscmp( arg, L"/d" ) == 0);
+}
+
 bool isHelp( const wchar_t* arg )
 {
-   return arg != NULL && wcscmp( arg, L"/?" ) == 0;
+   return arg != nullptr && wcscmp( arg, L"/?" ) == 0;
 }
 
 void printHelp( const wchar_t* name )
@@ -153,7 +214,7 @@ void printCurrentWorkingDirectory( int drive )
    // Check we can change to this drive before deciding that we can do other things
    if ( _chdrive( drive ) == 0 )
    {
-      wchar_t* buffer = _wgetcwd( NULL, _MAX_PATH );
+      wchar_t* buffer = _wgetcwd( nullptr, _MAX_PATH );
 
       if ( buffer )
       {
@@ -186,4 +247,27 @@ int driveToIndex( wchar_t drive )
       return drive - 'A' + 1;
    }
    return 0;
+}
+
+bool driveExists( const wchar_t* drive )
+{
+   int driveIndex;
+   if ( drive == nullptr || wcslen( drive ) == 0 )
+   {
+      // No drive specified, use the current drive.
+      // Yes, we could just return a default value if no drive specified, but it is possible to have a
+      // current drive that no longer valid so let's let the system decide
+      driveIndex = _getdrive();
+   }
+   else
+   {
+      driveIndex = driveToIndex( drive[ 0 ] );
+   }
+
+   // Make it zero-based, not 1-based
+   driveIndex--;
+
+   // See if the drive has its bit set in the drive mask
+   unsigned long driveMask = _getdrives();
+   return ( driveMask >> driveIndex ) & 1;
 }
