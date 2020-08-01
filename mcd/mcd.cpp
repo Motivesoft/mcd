@@ -130,6 +130,11 @@ int wmain( int argc, const wchar_t* argv[] )
          {
             std::wcout << "The system cannot find the drive specified." << std::endl;
          }
+         else if ( wcsncmp( dir, L"\\\\", 2 ) == 0 )
+         {
+            std::wcout << "'" << path.c_str() << "'" << std::endl;
+            std::wcout << "CMD does not support UNC paths as current directories." << std::endl;
+         }
          else
          {
             // Make directory path (if it doesn't exist) and then change to it
