@@ -46,18 +46,22 @@
 #include <iostream>
 #include <direct.h>
 
-void printCurrentWorkingDirectory( int drive );
+#include <filesystem>
+
 bool isChangeDrive( const wchar_t* arg );
 bool isHelp( const wchar_t* arg );
 void printHelp( const wchar_t* name );
-int driveToIndex( wchar_t drive );
-bool driveExists( const wchar_t* drive );
+
+int driveToIndex( const std::filesystem::path& p );
+bool driveExists( const std::filesystem::path& p );
+bool isUNC( const std::filesystem::path& p );
+void printCurrentWorkingDirectory( const std::filesystem::path& p );
 
 int wmain( int argc, const wchar_t* argv[] )
 {
    if ( argc == 1 )
    {
-      printCurrentWorkingDirectory( _getdrive() );
+      printCurrentWorkingDirectory( std::filesystem::current_path() );
    }
    else
    {
@@ -106,31 +110,38 @@ int wmain( int argc, const wchar_t* argv[] )
       }
       else
       {
-         wchar_t drive[ _MAX_DRIVE + 1 ];
-         wchar_t dir[ _MAX_DIR + 1 ];
-         wchar_t fname[ _MAX_FNAME + 1 ];
-         wchar_t ext[ _MAX_EXT + 1 ];
-         _wsplitpath_s( path.c_str(), drive, _MAX_DRIVE, dir, _MAX_DIR, fname, _MAX_FNAME, ext, _MAX_EXT );
+         std::filesystem::path p(path);
+         std::wcout << "Extension:     " << p.has_extension() << " " << (p.has_extension() ? p.extension().wstring() : L"") << std::endl;
+         std::wcout << "Filename:      " << p.has_filename() << " " << ( p.has_filename() ? p.filename().wstring() : L"" ) << std::endl;
+         std::wcout << "Parent path:   " << p.has_parent_path() << " " << ( p.has_parent_path() ? p.parent_path().wstring() : L"" ) << std::endl;
+         std::wcout << "Relative path: " << p.has_relative_path() << " " << ( p.has_relative_path() ? p.relative_path().wstring() : L"" ) << std::endl;
+         std::wcout << "Root directory:" << p.has_root_directory() << " " << ( p.has_root_directory() ? p.root_directory().wstring() : L"" ) << std::endl;
+         std::wcout << "Root name:     " << p.has_root_name() << " " << ( p.has_root_name() ? p.root_name().wstring() : L"" ) << std::endl;
+         std::wcout << "Root path:     " << p.has_root_path() << " " << ( p.has_root_path() ? p.root_path().wstring() : L"" ) << std::endl;
+         std::wcout << "Stem:          " << p.has_stem() << " " << ( p.has_stem() ? p.stem().wstring() : L"" ) << std::endl;
+         std::wcout << "Is absolute:   " << p.is_absolute() << std::endl;
+         std::wcout << "Is relative:   " << p.is_relative() << std::endl;
+         std::wcout << "Formats:       " << p.generic_format << " " << p.native_format << std::endl;
+         //std::wcout << "Root exists:   " << ( p.has_root_name() ? std::filesystem::exists( p.root_name() ) : true ) << std::endl;
+         //std::wcout << "Exists:        " << std::filesystem::exists( p ) << std::endl;
+         //std::wcout << "Canonical:     " << std::filesystem::canonical( p ) << std::endl;
+         //std::wcout << "Status:        " << std::filesystem::_Is_drive_prefix_with_slash_slash_question(p.c_str()) << std::endl;
+         // NB: root name but no root directory means drive letter only
 
-         // Consider a drive-only specification if the OS doesn't decode the path to have a directory, filename or extension
-         if ( wcslen( dir ) == 0 && wcslen( fname ) == 0 && wcslen( ext ) == 0 )
+         // Drive and no path?
+         if ( p.has_root_name() && !p.has_relative_path() )
          {
-            if ( changeDrive )
-            {
-               // Change drive with no path - error
-               std::wcout << "The system cannot find the path specified." << std::endl;
-            }
-            else
+            if ( !changeDrive )
             {
                // Display working directory for the specified drive
-               printCurrentWorkingDirectory( driveToIndex( drive[ 0 ] ) );
+               printCurrentWorkingDirectory( p );
             }
          }
-         else if( wcslen( drive ) > 0 && !driveExists( drive ) )
+         else if( p.has_root_name() && !driveExists( p ) )
          {
             std::wcout << "The system cannot find the drive specified." << std::endl;
          }
-         else if ( wcsncmp( dir, L"\\\\", 2 ) == 0 )
+         else if ( isUNC( p ) )
          {
             std::wcout << "'" << path.c_str() << "'" << std::endl;
             std::wcout << "CMD does not support UNC paths as current directories." << std::endl;
@@ -141,6 +152,15 @@ int wmain( int argc, const wchar_t* argv[] )
             struct _stat buffer;
             if ( _wstat( path.c_str(), &buffer ) )
             {
+               //::CreateDirectory( path.c_str() );
+
+               if ( p.has_filename() )
+               {
+                  std::wcout << "P:" << path << std::endl;
+                  path = path.append( L"\\" );
+                  std::wcout << "P:" << path << std::endl;
+                  p = std::filesystem::path( path );
+               }
                int result = _wmkdir( path.c_str() );
                if ( result == ENOENT )
                {
@@ -158,6 +178,18 @@ int wmain( int argc, const wchar_t* argv[] )
                {
                   std::wcout << "The device is not ready." << std::endl;
                }
+            }
+         }
+
+         // Change to the directory
+         //std::filesystem::current_path( p );
+
+         if ( changeDrive )
+         {
+            // Change drive
+            if ( driveExists( p ) )
+            {
+               _chdrive( driveToIndex( p ) );
             }
          }
       }
@@ -214,6 +246,10 @@ void printHelp( const wchar_t* name )
 /// <para><code>drive</code> is a 1-based drive index, e.g. A: = 1, B: = 2</para>
 /// </summary>
 /// <param name="drive">The drive letter (1-26)</param>
+void printCurrentWorkingDirectory( const std::filesystem::path& p )
+{
+   std::wcout << std::filesystem::canonical( p ).wstring() << std::endl;
+}
 void printCurrentWorkingDirectory( int drive )
 {
    // Check we can change to this drive before deciding that we can do other things
@@ -241,23 +277,30 @@ void printCurrentWorkingDirectory( int drive )
 /// </summary>
 /// <param name="drive">the drive letter, a-z, case-insensitive</param>
 /// <returns>the drive index (1-26), 0 for unknown</returns>
-int driveToIndex( wchar_t drive )
+int driveToIndex( const std::filesystem::path& p )
 {
-   if ( drive >= 'a' && drive <= 'z' )
+   if ( p.has_root_name() )
    {
-      return drive - 'a' + 1;
+      const wchar_t drive = p.root_name().c_str()[ 0 ];
+      if ( drive >= 'a' && drive <= 'z' )
+      {
+         // Letter-based drive index is 1-based
+         return drive - 'a' + 1;
+      }
+      if ( drive >= 'A' && drive <= 'Z' )
+      {
+         // Letter-based drive index is 1-based
+         return drive - 'A' + 1;
+      }
    }
-   if ( drive >= 'A' && drive <= 'Z' )
-   {
-      return drive - 'A' + 1;
-   }
+   // Drive index of zero means 'default drive'
    return 0;
 }
 
-bool driveExists( const wchar_t* drive )
+bool driveExists( const std::filesystem::path& p )
 {
    int driveIndex;
-   if ( drive == nullptr || wcslen( drive ) == 0 )
+   if ( !p.has_root_name() )
    {
       // No drive specified, use the current drive.
       // Yes, we could just return a default value if no drive specified, but it is possible to have a
@@ -266,7 +309,7 @@ bool driveExists( const wchar_t* drive )
    }
    else
    {
-      driveIndex = driveToIndex( drive[ 0 ] );
+      driveIndex = driveToIndex( p );
    }
 
    // Make it zero-based, not 1-based
@@ -275,4 +318,14 @@ bool driveExists( const wchar_t* drive )
    // See if the drive has its bit set in the drive mask
    unsigned long driveMask = _getdrives();
    return ( driveMask >> driveIndex ) & 1;
+}
+
+/// <summary>
+/// Returns true if the specified path is a UNC path
+/// </summary>
+/// <param name="p">the path</param>
+/// <returns>true if the path is a UNC path - i.e. starts with \\</returns>
+bool isUNC( const std::filesystem::path& p )
+{
+   return p.has_root_name() && wcsncmp( p.root_name().c_str(), L"\\\\", 2 ) == 0;
 }
