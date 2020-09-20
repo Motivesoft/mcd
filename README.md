@@ -1,5 +1,5 @@
 # mcd
-Command line executable to make and directory and change into it as a single command - a combo `md` and `cd`.
+Command line utility to make and directory and change into it as a single command - a combo `md` and `cd`.
 
 # What and why?
 For me, when I make a directory in a command prompt window, I usually also want to change into it.
@@ -11,11 +11,8 @@ The general idea is that `mcd` should work just like the inbuild command tool `c
 Yes, it would be easy enough to do this in a batch or command file, or by some other method, but it seemed like a nice easy gadget that someone might get some use from.
 
 # Notes
-1. This will be a basic C++ application written using Visual Studio
-1. This will be written for wide character sets (`wchar_t`, rather than `char`), but should be fairly easy to convert back to a non-wide version
-1. Syntactically, the utility will work like `cd` but of course you change that that by copying this code and making you own version
-1. Built executables will be provided as a GitHub Release
-1. The best usage is to put the appropriate executable into a utilities folder that is on your command prompt path so that you can run it just as simply as you can use the built in `cd` and `md` commands.
+1. Syntactically, the utility will work like `md` and `cd` but of course you change that that by copying this code and making you own version
+1. The best usage is to put the command file (batch file) into a utilities folder that is on your command prompt path so that you can run it just as simply as you can use the built in `cd` and `md` commands.
 
 # Information
 Displays the name of or changes the current directory. If the directory doesn't exist, it is created.
@@ -44,3 +41,10 @@ is the same as:
 Multiple adjacent spaces will be condensed down to one, which is not precisely
 the same behaviour as `CD` with extensions enabled, but close enough for most uses. For
 multiple adjecent spaces, surround the path with quotes.
+
+# Implementation note
+Initially, this was to be a C++ project delivering an executable, but I overlooked the obvious - that changes to the environment, such as current working directory, do not persist beyond the execution lifetime of the executable.
+
+In fact, my only implementation option is to fall back to using the native CD and MD commands built into the console. Even then, much as I'd like to use SETLOCAL and ENDLOCAL to allow me to make other changes and then have them automatically reverted, using SETLOCAL would again mean that the change of working directory would not persist.
+
+So, here we are. The best way to achieve MCD is to do "MD" and then do "CD", just like we were doing by hand - but at least we now have it was a batch file which, yes, you could easily write yourself, but you didn't, did you, and neither did I, until now.
